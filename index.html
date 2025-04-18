@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Shmup</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #000000;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      console.log("Starting Shmup...");
+      const config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        pixelArt: true,
+        scene: { create, update },
+      };
+      try {
+        new Phaser.Game(config);
+        console.log("Phaser loaded!");
+      } catch (e) {
+        console.error("Phaser failed:", e);
+      }
+
+      let player,
+        playerText,
+        enemy,
+        enemyText,
+        bullets,
+        enemyBullets,
+        cursors,
+        fireKey,
+        score,
+        scoreText,
+        gameStarted;
+
+      function create() {
+        console.log("Scene created!");
+        try {
+          this.add.rectangle(400, 300, 800, 600, 0x000000);
+          if (!gameStarted) {
+            this.add
+              .text(400, 300, "SHMUP\nPress SPACE", {
+                fontFamily: "monospace",
+                fontSize: "16px",
+                color: "#ffffff",
+                align: "center",
+              })
+              .setOrigin(0.5);
+            this.input.keyboard.on("keydown-SPACE", () => {
+              gameStarted = true;
+              this.scene.restart();
+            });
+            console.log("Intro screen shown");
+            return;
+          }
+
+          this.add
+            .text(400, 550, "/\\ /\\ /\\ /\\ /\\ /\\", {
+              fontFamily: "monospace",
+              fontSize: "16px",
+              color: "#ffffff",
+            })
+            .setOrigin(0.5)
+            .setAlpha(0.2);
+          console.log("Mount Kinabalu added");
+
+          player = this.add.rectangle(400, 500, 16, 16).setOrigin(0.5);
+          playerText = this.add
+            .text(400, 500, "/=\\", {
+              fontFamily: "monospace",
+              fontSize: "16px",
+              color: "#ffffff",
+            })
+            .setOrigin(0.5);
+          console.log("Player created");
+
+          enemy = this.add.rectangle(400, 50, 16, 16).setOrigin(0.5);
+          enemyText = this.add
+            .text(400, 50, "-||-", {
+              fontFamily: "monospace",
+              fontSize: "16px",
+              color: "#ffffff",
+            })
+            .setOrigin(0.5);
+          enemy.nextFire = this.time.now + 1000;
+          console.log("Enemy created");
+
+          bullets = [];
+          enemyBullets = [];
+          score = 0;
+          scoreText = this.add.text(10, 10, `| SCORE: ${score} |`, {
+            fontFamily: "monospace",
+            fontSize: "16px",
+            color: "#ffffff",
+          });
+
+          cursors = this.input.keyboard.addKeys({
+            up: Phaser.Input.Keyboard.KeyCodes.W,
+            left: Phaser.Input.Keyboard.KeyCodes.A,
+            down: Phaser.Input.Keyboard.KeyCodes.R,
+            right: Phaser.Input.Keyboard.KeyCodes.S,
+          });
+          fireKey = this.input.keyboard.addKey(
+            Phaser.Input.Keyboard.KeyCodes.SPACE
+          );
+
+          this.input.on("pointermove", (pointer) => {
+            if (!this.cursorText) {
+              this.cursorText = this.add
+                .text(pointer.x, pointer.y, "+", {
+                  fontFamily: "monospace",
+                  fontSize: "16px",
+                  color: "#ffffff",
+                })
+                .setOrigin(0.5);
+            } else {
+              this.cursorText.setPosition(pointer.x, pointer.y);
+            }
+          });
+        } catch (e) {
+          console.error("Create error:", e);
+        }
+      }
+
+      function update() {
+        if (!gameStarted) return;
+        try {
+          playerText.setPosition(player.x, player.y);
+          let velocityX = 0,
+            velocityY = 0;
+          if (cursors.left.isDown) velocityX = -250;
+          else if (cursors.right.isDown) velocityX = 250;
+          if (cursors.up.isDown) velocityY = -250;
+          else if (cursors.down.isDown) velocityY = 250;
+          player.setPosition(
+            Phaser.Math.Clamp(
+              player.x + (velocityX * this.game.loop.delta) / 1000,
+              8,
+              792
+            ),
+            Phaser.Math.Clamp(
+              player.y + (velocityY * this.game.loop.delta) / 1000,
+              8,
+              592
+            )
+          );
+
+          if (Phaser.Input.Keyboard.JustDown(fireKey)) {
+            let bullet = this.add
+              .rectangle(player.x, player.y - 10, 8, 8)
+              .setOrigin(0.5);
+            let bulletText = this.add
+              .text(player.x, player.y - 10, "|", {
+                fontFamily: "monospace",
+                fontSize: "16px",
+                color: "#ffffff",
+              })
+              .setOrigin(0.5);
+            bullets.push({ rect: bullet, text: bulletText, vy: -500 });
+            console.log("Player bullet fired");
+          }
+
+          if (this.time.now > enemy.nextFire) {
+            for (let i = -1; i <= 1; i++) {
+              let bullet = this.add
+                .rectangle(enemy.x, enemy.y + 10, 8, 8)
+                .setOrigin(0.5);
+              let bulletText = this.add
+                .text(enemy.x, enemy.y + 10, "*", {
+                  fontFamily: "monospace",
+                  fontSize: "16px",
+                  color: "#ffffff",
+                })
+                .setOrigin(0.5);
+              enemyBullets.push({
+                rect: bullet,
+                text: bulletText,
+                vx: 150 * i,
+                vy: 300,
+              });
+            }
+            enemy.nextFire = this.time.now + 1000;
+            console.log("Enemy bullets fired");
+          }
+
+          bullets = bullets.filter((b) => {
+            b.rect.y += (b.vy * this.game.loop.delta) / 1000;
+            b.text.setPosition(b.rect.x, b.rect.y);
+            if (b.rect.y < 0) {
+              b.rect.destroy();
+              b.text.destroy();
+              return false;
+            }
+            if (
+              Math.abs(b.rect.x - enemy.x) < 12 &&
+              Math.abs(b.rect.y - enemy.y) < 12
+            ) {
+              b.rect.destroy();
+              b.text.destroy();
+              score += 10;
+              scoreText.setText(`| SCORE: ${score} |`);
+              let explosion = this.add
+                .text(enemy.x, enemy.y, "*", {
+                  fontFamily: "monospace",
+                  fontSize: "16px",
+                  color: "#ffffff",
+                })
+                .setOrigin(0.5);
+              this.tweens.add({
+                targets: explosion,
+                duration: 200,
+                onUpdate: (tween, target) => {
+                  if (tween.progress < 0.5) target.setText("+");
+                  else target.setText(".");
+                },
+                onComplete: () => explosion.destroy(),
+              });
+              enemy.setPosition(Phaser.Math.Between(100, 700), 50);
+              enemyText.setPosition(enemy.x, enemy.y);
+              return false;
+            }
+            return true;
+          });
+
+          enemyBullets = enemyBullets.filter((b) => {
+            b.rect.x += ((b.vx || 0) * this.game.loop.delta) / 1000;
+            b.rect.y += (b.vy * this.game.loop.delta) / 1000;
+            b.text.setPosition(b.rect.x, b.rect.y);
+            if (b.rect.y > 600) {
+              b.rect.destroy();
+              b.text.destroy();
+              return false;
+            }
+            return true;
+          });
+        } catch (e) {
+          console.error("Update error:", e);
+        }
+      }
+    </script>
+  </body>
+</html>
